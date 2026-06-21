@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#12372a">
+  <title>เกณฑ์ทดสอบสมรรถภาพสำหรับเจ้าหน้าที่ — V3</title>
+  <style>
+    :root{--ink:#17231d;--muted:#65736c;--green:#176b45;--green-dark:#12372a;--cream:#f5f5ed;--line:#dde4df}
+    *{box-sizing:border-box}
+    html,body{height:100%;overflow:hidden}
+    body{margin:0;background:#e8ede9;color:var(--ink);font-family:"Noto Sans Thai","Leelawadee UI",Tahoma,system-ui,sans-serif}
+    button,select{font:inherit}
+    .app{width:min(100%,480px);height:100dvh;margin:auto;background:var(--cream);padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);box-shadow:0 0 50px #12372a18;overflow:hidden}
+    main{height:100%;padding:10px 12px;display:flex;flex-direction:column}
+    .label-row{display:flex;justify-content:space-between;align-items:end;margin:0 2px 5px;flex:none}
+    .label-row label,.section-label{font-size:13px;font-weight:800}
+    .hint{font-size:11px;color:var(--muted)}
+    .stations{display:flex;gap:7px;overflow:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:1px 2px 7px;flex:none}
+    .stations::-webkit-scrollbar{display:none}
+    .station{flex:0 0 132px;height:78px;padding:8px 10px;border:1.5px solid var(--line);border-radius:14px;background:#fff;text-align:left;scroll-snap-align:start;color:var(--ink);transition:.15s;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start}
+    .station .number{display:grid;place-items:center;width:23px;height:23px;flex:none;margin-bottom:5px;border-radius:7px;background:#eaf0ec;color:var(--green);font-size:12px;font-weight:800}
+    .station .name{display:block;font-size:11.5px;font-weight:700;line-height:1.25}
+    .station.active{background:var(--green);color:white;border-color:var(--green);box-shadow:0 8px 20px #176b4530;transform:translateY(-1px)}
+    .station.active .number{background:#ffffff2c;color:white}
+    .age-box{padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:13px;display:grid;grid-template-columns:1fr 100px;align-items:center;gap:10px;flex:none}
+    .age-box strong{display:block;font-size:12.5px}.age-box span{font-size:10.5px;color:var(--muted)}
+    select{width:100%;height:39px;border:2px solid #9eb6a8;border-radius:10px;background:#f8faf8;padding:0 28px 0 10px;color:var(--green-dark);font-size:17px;font-weight:800}
+    .result-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:10px 2px 6px;flex:none}
+    .section-label{display:block;margin:0;flex:none}
+    .result-context{font-size:10px;color:var(--muted);text-align:right}
+    .levels{display:grid;grid-template-rows:repeat(2,minmax(0,1fr));gap:8px;min-height:0;flex:1}
+    .level{display:grid;grid-template-columns:10px 1fr;grid-template-rows:auto 1fr;column-gap:13px;align-items:center;padding:16px;background:white;border:1px solid var(--line);border-radius:18px;min-height:0}
+    .stripe{grid-row:1/3;width:10px;height:64px;border-radius:7px}
+    .level-name{font-size:16px;font-weight:800;align-self:end}.level-note{font-size:10.5px;color:var(--muted)}
+    .value{grid-column:2;text-align:left;font-size:28px;font-weight:800;line-height:1.15;white-space:nowrap;align-self:start;margin-top:5px}
+    .fail .stripe{background:#e35d5b}.p70 .stripe{background:#29a566}.p80 .stripe{background:#377fd1}.p90 .stripe{background:#8b5cc7}.p100 .stripe{background:#e3a62b}
+    .p70{border:2px solid #29a566;background:#f1fbf5}
+    .p100{border:2px solid #e3a62b;background:#fff9e9}
+    @media(max-height:700px){main{padding-top:7px;padding-bottom:7px}.station{height:70px}.level{padding:11px 14px}.value{font-size:23px}.stripe{height:50px}.result-head{margin-top:7px}}
+    @media(max-width:360px){.station{flex-basis:124px}.age-box{grid-template-columns:1fr 92px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <main>
+    <div class="label-row"><label>1. เลือกสถานี</label><span class="hint">เลื่อนซ้าย–ขวา</span></div>
+    <div class="stations" id="stations" aria-label="สถานีทดสอบ"></div>
+
+    <div class="age-box">
+      <div><strong>2. อายุผู้เข้ารับการทดสอบ</strong><span>รองรับอายุ 17–60 ปี</span></div>
+      <select id="age" aria-label="เลือกอายุ"></select>
+    </div>
+
+    <div class="result-head">
+      <span class="section-label">เกณฑ์สำหรับเจ้าหน้าที่</span>
+      <small class="result-context" id="context">—</small>
+    </div>
+    <div class="levels" id="levels" aria-live="polite"></div>
+  </main>
+</div>
+<script>
+const groups=[[17,21],[22,26],[27,31],[32,36],[37,41],[42,46],[47,51],[52,60]];
+const stations=[
+ {name:'งอเข่าครึ่งนั่ง ยกบาร์น้ำหนัก',unit:'น้ำหนัก',v:[
+  ['มากกว่า 75','มากกว่า 61','มากกว่า 67','มากกว่า 63','มากกว่า 59','มากกว่า 55','มากกว่า 51','มากกว่า 47'],
+  ['75–91','71–87','67–83','63–79','59–75','55–71','51–67','47–63'],
+  ['95–111','91–107','87–103','83–99','79–95','75–91','71–87','67–83'],
+  ['115–131','111–127','107–123','103–119','99–115','95–111','91–107','87–107'],
+  ['น้อยกว่า 135','น้อยกว่า 131','น้อยกว่า 124','น้อยกว่า 123','น้อยกว่า 119','น้อยกว่า 115','น้อยกว่า 111','น้อยกว่า 107']]},
+ {name:'ย่อตัวทุ่มน้ำหนักไปด้านหลัง',unit:'เมตร',v:[
+  ['มากกว่า 7.2','มากกว่า 7.2','มากกว่า 7.1','มากกว่า 6.9','มากกว่า 6.7','มากกว่า 6.5','มากกว่า 6.3','มากกว่า 6.1'],
+  ['7.2–8.6','7.2–8.6','7.1–8.5','6.9–8.3','6.7–8.1','6.5–7.9','6.3–7.7','6.1–7.5'],
+  ['8.7–10.1','8.7–10.1','8.6–10','8.4–9.5','8.2–9.5','8–9.4','7.8–9.2','7.6–9'],
+  ['10.2–11.6','10.2–11.6','10.1–11.5','9.5–11.3','9.3–11.1','9.1–11','8.9–10.7','8.8–10.5'],
+  ['น้อยกว่า 11.7','น้อยกว่า 11.7','น้อยกว่า 11.6','น้อยกว่า 11.4','น้อยกว่า 11.2','น้อยกว่า 11','น้อยกว่า 10.8','น้อยกว่า 10.6']]},
+ {name:'ดันพื้นละมือกางแขน',unit:'ครั้ง',v:[
+  ['มากกว่า 30','มากกว่า 30','มากกว่า 29','มากกว่า 27','มากกว่า 25','มากกว่า 23','มากกว่า 21','มากกว่า 19'],
+  ['30–39','30–39','29–38','27–36','25–34','23–32','21–30','19–28'],
+  ['40–49','40–49','39–48','37–46','35–44','33–42','31–40','29–38'],
+  ['50–59','50–59','49–58','47–56','45–54','43–52','41–49','39–48'],
+  ['น้อยกว่า 60','น้อยกว่า 60','น้อยกว่า 59','น้อยกว่า 57','น้อยกว่า 55','น้อยกว่า 53','น้อยกว่า 51','น้อยกว่า 49']]},
+ {name:'วิ่งไป–กลับ ลากและยกสิ่งของ',unit:'เวลา',v:[
+  ['มากกว่า 2.10','มากกว่า 2.14','มากกว่า 2.18','มากกว่า 2.22','มากกว่า 2.26','มากกว่า 2.30','มากกว่า 2.34','มากกว่า 2.36'],
+  ['2.10–2.01','2.14–2.05','2.18–2.09','2.22–2.13','2.26–2.17','2.30–2.21','2.34–2.25','2.36–2.27'],
+  ['1.51–2.00','1.55–2.04','1.59–2.08','2.03–2.12','2.25–2.16','2.29–2.20','2.33–2.24','2.35–2.26'],
+  ['1.59–1.50','2.03–1.54','2.07–1.58','2.11–2.02','2.15–2.06','2.19–2.10','2.23–2.14','2.25–2.16'],
+  ['น้อยกว่า 1.33','น้อยกว่า 1.37','น้อยกว่า 1.41','น้อยกว่า 1.45','น้อยกว่า 1.49','น้อยกว่า 1.53','น้อยกว่า 1.57','น้อยกว่า 1.59']]},
+ {name:'กระดานคว่ำ',unit:'เวลา',v:[
+  ['น้อยกว่า 2.02','น้อยกว่า 1.57','น้อยกว่า 1.52','น้อยกว่า 1.47','น้อยกว่า 1.42','น้อยกว่า 1.42','น้อยกว่า 1.42','น้อยกว่า 1.42'],
+  ['2.02–2.34','1.57–2.29','1.52–2.24','1.47–2.19','1.42–2.14','1.42–2.14','1.42–2.14','1.42–2.14'],
+  ['2.35–3.06','2.30–3.01','2.25–2.56','2.20–2.51','2.15–2.46','2.15–2.46','2.15–2.46','2.15–2.46'],
+  ['3.07–3.39','3.02–3.34','2.57–3.30','2.52–3.25','2.47–3.19','2.47–3.19','2.47–3.19','2.47–3.19'],
+  ['มากกว่า 3.40','มากกว่า 3.35','มากกว่า 3.30','มากกว่า 3.25','มากกว่า 3.20','มากกว่า 3.20','มากกว่า 3.20','มากกว่า 3.20']]},
+ {name:'วิ่ง 2 กิโลเมตร',unit:'เวลา',v:[
+  ['มากกว่า 9.20','มากกว่า 9.45','มากกว่า 10.15','มากกว่า 10.45','มากกว่า 11.20','มากกว่า 11.55','มากกว่า 12.30','มากกว่า 13.05'],
+  ['9.20–8.29','9.45–8.54','10.15–9.24','10.45–9.54','11.20–10.29','11.55–11.04','12.30–11.39','13.05–12.14'],
+  ['8.30–7.39','8.55–8.04','9.25–8.34','9.55–9.04','10.30–9.39','11.05–10.14','11.40–10.49','12.15–11.24'],
+  ['7.40–6.49','8.05–7.14','8.35–7.44','9.05–8.14','9.40–8.49','10.15–9.24','10.50–9.59','11.25–10.34'],
+  ['น้อยกว่า 6.50','น้อยกว่า 7.15','น้อยกว่า 7.45','น้อยกว่า 8.15','น้อยกว่า 8.50','น้อยกว่า 9.25','น้อยกว่า 10.00','น้อยกว่า 10.35']]}
+];
+const levelIndexes=[1,4];
+const labels=['ผ่านขั้นต่ำ 70%','คะแนนเต็ม 100%'];
+const classes=['p70','p100'];
+let current=0;
+const stationEl=document.querySelector('#stations'),ageEl=document.querySelector('#age');
+stations.forEach((s,i)=>stationEl.insertAdjacentHTML('beforeend',`<button class="station ${i?'':'active'}" data-i="${i}"><span class="number">${i+1}</span><span class="name">${s.name}</span></button>`));
+for(let a=17;a<=60;a++)ageEl.insertAdjacentHTML('beforeend',`<option value="${a}" ${a===30?'selected':''}>${a} ปี</option>`);
+function render(){
+ const age=+ageEl.value,gi=groups.findIndex(g=>age>=g[0]&&age<=g[1]),s=stations[current];
+ document.querySelector('#context').textContent=`สถานี ${current+1} · อายุ ${age} ปี (กลุ่ม ${groups[gi][0]}–${groups[gi][1]} ปี)`;
+ document.querySelector('#levels').innerHTML=labels.map((label,i)=>`<div class="level ${classes[i]}"><i class="stripe"></i><div><div class="level-name">${label}</div><div class="level-note">${i===0?'เกณฑ์ที่ต้องผ่าน':'ผลงานระดับสูงสุด'}</div></div><div class="value">${s.v[levelIndexes[i]][gi]} <small>${s.unit}</small></div></div>`).join('');
+}
+stationEl.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;current=+b.dataset.i;document.querySelectorAll('.station').forEach(x=>x.classList.toggle('active',x===b));render()});
+ageEl.addEventListener('change',render);render();
+</script>
+</body>
+</html>
